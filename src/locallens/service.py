@@ -205,6 +205,29 @@ class LocalLensService:
         topic: str = "",
     ) -> AnswerPayload:
         intent = self._infer_intent(query, location=location, topic=topic)
+        unsupported_location = self._unsupported_requested_location(query, intent.location, explicit_location=location)
+        if unsupported_location:
+            return AnswerPayload(
+                answer=(
+                    f"I do not have grounded coverage for {unsupported_location} in the current LocalLens corpus."
+                ),
+                why_this_recommendation=(
+                    "The query names a location that is outside the set of cities and parks currently indexed by the system, "
+                    "so returning a recommendation would risk pulling evidence from the wrong place."
+                ),
+                key_tips=[
+                    "Ask about one of the supported LocalLens destinations.",
+                    "If you want a nearby covered city, try naming it directly.",
+                    "Treat this as a corpus-coverage limit rather than a recommendation."
+                ],
+                confidence_note="Low confidence because the requested location is not available in the current LocalLens corpus.",
+                citations=[],
+                filters_applied={"requested_location": unsupported_location, "coverage": "unsupported"},
+                used_local_llm=False,
+                source_summary="No sources retrieved because the requested location is outside the current corpus.",
+                place_cards=[],
+                gallery_images=[],
+            )
         retrieval_topic = self._retrieval_topic_for_intent(intent)
         filters = {
             "location": intent.location if intent.location and not intent.wants_distance_expansion else "",
@@ -562,6 +585,36 @@ class LocalLensService:
         activity_text = " ".join(activity.replace("_", " ") for activity in (activity_types or []))
         parts = [query, addition, activity_text]
         return " ".join(part.strip() for part in parts if part and part.strip())
+
+    def _unsupported_requested_location(
+        self,
+        query: str,
+        matched_location: str,
+        *,
+        explicit_location: str = "",
+    ) -> str:
+        if matched_location:
+            return ""
+        if explicit_location:
+            return explicit_location.strip()
+        query_lower = query.lower()
+        patterns = [
+            r"\b(?:in|near|around|from)\s+([a-z][a-z\s.'-]{1,40}?)(?=$|[?.,]|(?:\s+(?:over|under|within|with|for|on|during|this|that|which|who|where|when)\b))",
+        ]
+        unsupported_tokens = {"me", "here", "there", "town", "city", "area", "downtown", "uptown"}
+        for pattern in patterns:
+            match = re.search(pattern, query_lower)
+            if not match:
+                continue
+            candidate = re.sub(r"\s+", " ", match.group(1).strip(" ?,."))
+            if not candidate:
+                continue
+            if candidate in unsupported_tokens:
+                continue
+            if any(self._contains_phrase(self._normalize_lookup_text(candidate), city.name) for city in CITY_CATALOG):
+                continue
+            return candidate.title()
+        return ""
 
     def _search_places(self, intent: QueryIntent) -> list[PlaceCandidate]:
         if not intent.location and not intent.wants_distance_expansion:

@@ -51,7 +51,7 @@ CITY_CATALOG: list[CityRecord] = [
         "California, USA",
         37.3382,
         -121.8863,
-        aliases=["sj", "silicon valley"],
+        aliases=["sj", "silicon valley", "santa clara"],
         wikivoyage_page="San Jose (California)",
         wikipedia_page="San Jose, California",
         official_url="https://www.sanjose.org/",
