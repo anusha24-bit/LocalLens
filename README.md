@@ -147,3 +147,11 @@ LocalLens integrates with the Google Places API to enable rating-aware search (e
 | `data/processed/locallens.db` | Main SQLite database |
 | `artifacts/chunk_embeddings.npy` | Dense embedding index |
 | `src/locallens/ingestion/` | All ingestion code |
+
+---
+
+## Documentation
+
+- [Project writeup](docs/PROJECT_WRITEUP.tex)
+- [Demo script](docs/demo_script.md)
+- [GCP setup notes](docs/gcp_free_tier.md)
