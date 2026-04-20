@@ -1,0 +1,203 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{array}
+
+\title{LocalLens: A Local-First Retrieval Augmented Generation System for Travelers and Recent Movers}
+\author{
+Anusha Ravi Kumar \and
+Sohan Mahesh \and
+Parvathi Gottumukkala \and
+Shraavya Kishan Bharadwaj
+}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Motivation and Impact}
+Travelers and recent movers often ask questions that are practical, local, and hard to answer well with a general-purpose language model alone. A question such as ``Where is a good sunset spot in San Francisco?'' or ``Can I rely on public transit in Chicago?'' is not just looking for encyclopedic knowledge. It depends on local context, neighborhood tradeoffs, transportation reality, timing, food quality, and community advice that changes across places. LocalLens was designed to address this gap with a retrieval augmented generation (RAG) system that grounds narrative answers in external evidence rather than relying on parametric memory alone.
+
+The long-term impact of this project is a local-intelligence assistant that helps users make practical decisions before they arrive in a city. Instead of overwhelming users with disconnected search results, LocalLens aims to present understandable guidance with evidence, tradeoffs, and clickable citations. This is useful for travelers, students moving to a new city, and anyone trying to learn the ``hidden local knowledge'' that people often only discover after living there for some time.
+
+\section{Heilmeier Catechism}
+\textbf{What are we trying to do?} Build a local-first RAG system that answers travel and relocation questions with grounded narrative responses and verifiable citations.\\
+\textbf{How is it done today, and what are the limits?} Current search and LLM tools either return generic summaries, unstructured web results, or hallucinated suggestions without transparent evidence.\\
+\textbf{What is new in our approach?} We combine hybrid passage retrieval with structured place search so that LocalLens can answer both open-ended narrative questions and rating-sensitive place-discovery questions in one interface.\\
+\textbf{Who cares?} Travelers, recent movers, instructors evaluating grounded inference, and future systems that need trustworthy local recommendations.\\
+\textbf{What are the risks?} Public-source coverage is uneven across cities, external APIs can be rate-limited, and quality depends on retrieval coverage.\\
+\textbf{How will we measure success?} By checking groundedness, citation usefulness, retrieval quality, live-demo latency, and whether the system handles realistic local queries better than a generic answer baseline.
+
+\section{Background and Related Work}
+Our project is motivated by retrieval augmented generation for knowledge-intensive NLP tasks, especially work showing that retrieval can improve factuality and transparency by exposing the model to task-relevant external evidence at inference time. LocalLens also draws on practical design patterns from modern RAG systems: lexical retrieval for exact term matching, dense retrieval for semantic similarity, fusion-based ranking, and grounded generation constrained by retrieved context.
+
+Related systems in industry often separate travel search, map search, and language-model summarization into different interfaces. LocalLens instead unifies them in a single experience. From the NLP perspective, the interesting contribution is not a new foundation model, but a systems-level design that integrates heterogeneous data types: guide documents, community discussion, orientation summaries, and structured place metadata.
+
+\section{Problem Formulation}
+We frame LocalLens as a grounded question-answering and recommendation system over a geographically organized corpus. Each query may require one or both of the following:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Narrative retrieval}: retrieve passages about a city's norms, transit, lodging, timing, safety, or activities.
+    \item \textbf{Structured place discovery}: identify candidate places that satisfy constraints such as cuisine, category, and minimum rating.
+\end{itemize}
+
+The output must be readable by non-experts, so the final answer is a short narrative rather than a keyword list. At the same time, each answer must remain verifiable by linking back to retrieved sources.
+
+\section{System Overview}
+LocalLens has five major stages:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Ingestion}: fetch open local-information sources and normalize them into a unified schema.
+    \item \textbf{Storage}: persist narrative documents, passage chunks, and place records in SQLite.
+    \item \textbf{Retrieval}: combine BM25 and dense retrieval with reciprocal rank fusion and lightweight reranking.
+    \item \textbf{Generation}: prompt a local Ollama-served model to produce a grounded narrative answer.
+    \item \textbf{Presentation}: display the answer, a ``why this recommendation'' explanation, place cards, visual context, and clickable citations in Streamlit.
+\end{enumerate}
+
+\subsection*{System Diagram}
+\begin{figure}[h]
+\centering
+\fbox{
+\parbox{0.93\linewidth}{
+\centering
+\textbf{Open Sources}\\
+Wikivoyage, Wikipedia, Reddit, OpenStreetMap/Overpass, optional Google Places\\[0.5em]
+$\downarrow$\\[0.5em]
+\textbf{Normalization Layer}\\
+source documents + place records in SQLite\\[0.5em]
+$\downarrow$\\[0.5em]
+\textbf{Passage Construction}\\
+chunking, metadata tagging, place-document conversion\\[0.5em]
+$\downarrow$\\[0.5em]
+\textbf{Retrieval Layer}\\
+BM25 + dense embeddings + reciprocal rank fusion + reranking\\[0.5em]
+$\downarrow$\\[0.5em]
+\textbf{Local Generation Layer}\\
+Ollama-served LLM produces grounded narrative answers\\[0.5em]
+$\downarrow$\\[0.5em]
+\textbf{Frontend}\\
+Streamlit answer view, evidence notes, place cards, citations, optional images
+}
+}
+\caption{LocalLens systems diagram.}
+\end{figure}
+
+\section{Data Sources and Provenance}
+LocalLens uses multiple complementary source types:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Wikivoyage}: sectioned travel guides for orientation, transit, food, lodging, safety, etiquette, and activities.
+    \item \textbf{Wikipedia}: city and park summaries plus representative images for orientation and visual context.
+    \item \textbf{Reddit}: city-specific local discussions and top comments for ``lived experience'' signals.
+    \item \textbf{OpenStreetMap / Overpass}: structured place records for restaurants, parks, museums, viewpoints, hotels, attractions, and transit nodes.
+    \item \textbf{Google Places (optional)}: query-time enrichment for rating-sensitive search such as ``best taco place in San Jose over 4.5''.
+\end{itemize}
+
+Every stored item keeps a source URL, location label, topic label, provider metadata, and timestamp. The citation design is intentionally transparent: users can open a passage source directly from the interface. This supports the assignment requirement that the system be verifiable and that citations be clickable.
+
+\section{Database Design}
+We store the corpus in SQLite because it is simple, reproducible, and easy to ship in Docker. The core tables are:
+\begin{itemize}[leftmargin=*]
+    \item \texttt{source\_documents}: long-form guide, background, Reddit, and place-derived documents.
+    \item \texttt{chunks}: citation-ready passages produced by chunking source documents.
+    \item \texttt{places}: structured place records used for place ranking and recommendation.
+\end{itemize}
+
+This design lets us support both narrative and structured retrieval without introducing a separate hosted database dependency. For dense retrieval, the embedding matrix is stored as local artifact files next to the database.
+
+\section{Methodology}
+\subsection{Ingestion and Normalization}
+We normalize each source into a shared schema. Sectioned documents are mapped to high-level topics such as food, transit, timing, and safety. Place records are also converted into citation-ready mini-documents so that structured evidence can participate in passage retrieval. This is important because many local queries are place-centric and benefit from both structured ranking and textual evidence.
+
+\subsection{Chunking}
+Long-form documents are split into overlapping chunks. We use passage-level chunking rather than sentence-only retrieval because local-advice questions often require a few adjacent details together, such as a neighborhood name plus the associated tradeoff.
+
+\subsection{Hybrid Retrieval}
+LocalLens combines:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{BM25} for exact lexical matches, which are especially useful for neighborhood names, transit systems, cuisine terms, and specific place names.
+    \item \textbf{Dense retrieval} using \texttt{sentence-transformers/all-MiniLM-L6-v2} for semantic matching when the user's wording differs from the stored phrasing.
+    \item \textbf{Reciprocal rank fusion} to merge the two ranked lists.
+    \item \textbf{Metadata-aware reranking} to keep results aligned with the detected location and topic.
+\end{itemize}
+
+\subsection{Structured Place Search}
+If the query looks like a place-discovery request, LocalLens separately ranks place candidates using category matches, cuisine hints, location constraints, and optional rating thresholds. This path is especially useful for questions like restaurant or sunset-spot recommendations. The final answer can then mention both ranked places and retrieved supporting passages.
+
+\subsection{Grounded Local Generation}
+Generation is performed with a locally served Ollama model, which satisfies the requirement that the LLM component be local/native rather than a hosted external API. The prompt explicitly tells the model to use only retrieved evidence, produce a short readable narrative, explain why the recommendation was made, and admit when evidence is thin.
+
+\section{Frontend and User Experience}
+The frontend is implemented in Streamlit. The interface includes:
+\begin{itemize}[leftmargin=*]
+    \item location and topic filters,
+    \item a free-form query box,
+    \item sample queries,
+    \item a narrative answer panel,
+    \item a ``why this recommendation'' section,
+    \item key tips,
+    \item retrieval notes,
+    \item recommended place cards,
+    \item optional visual context images,
+    \item clickable source citations.
+\end{itemize}
+
+This design is aligned with the course requirement for a frontend and with our project goal of making answers easily understandable rather than a pile of disconnected facts.
+
+\section{Evaluation and Analysis Plan}
+We evaluate LocalLens along the axes emphasized in the course rubric.
+
+\subsection*{Technical Quality}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Groundedness}: whether the citations directly support the produced answer.
+    \item \textbf{Relevance}: whether retrieved evidence stays on the correct city and topic.
+    \item \textbf{Place quality}: whether recommendation queries respect filters such as cuisine and minimum rating.
+    \item \textbf{Latency}: whether retrieval and generation are fast enough for a live classroom demo.
+\end{itemize}
+
+\subsection*{Documentation and Analysis}
+\begin{itemize}[leftmargin=*]
+    \item justify the data-source design,
+    \item discuss tradeoffs between broad coverage and source quality,
+    \item analyze failure modes such as thin city coverage or ambiguous location names,
+    \item describe how local generation reduces hallucination relative to unsupported free-form generation.
+\end{itemize}
+
+A simple smoke-evaluation script is included in the repository to test representative questions spanning activities, food, transit, and etiquette.
+
+\section{Scalability, Deployment, and Free GCP}
+For the class demo, LocalLens can run locally or on a small remote host. The repository includes Docker and Docker Compose configurations for reproducibility. A separate note in the repository summarizes Google Cloud and Google Maps free-tier options checked from official sources on April 18, 2026. The practical recommendation is to keep retrieval and the Streamlit interface on a low-cost VM while serving the local LLM on a machine with enough compute.
+
+\section{Limitations}
+LocalLens is only as strong as its source coverage. Some cities have richer Reddit and guide coverage than others, and public APIs can rate-limit or timeout. Structured place data is broad but not always descriptive enough on its own, which is why the system benefits from optional Google Places enrichment for rating-sensitive queries. Future work could add stronger review ingestion, better city-specific official-source scraping, and automatic evaluation datasets for groundedness and recommendation quality.
+
+\section{Reproducibility}
+The project repository contains:
+\begin{itemize}[leftmargin=*]
+    \item the ingestion scripts,
+    \item the SQLite build pipeline,
+    \item the dense-index build script,
+    \item the Streamlit application,
+    \item Docker configuration,
+    \item demo notes,
+    \item deployment notes,
+    \item and this writeup source.
+\end{itemize}
+
+To reproduce the system, a user installs the dependencies, builds the corpus, builds the dense index, launches Ollama locally, and then runs the Streamlit application. The system therefore satisfies the rubric's emphasis on replicability and provenance.
+
+\section{Contributions}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Anusha Ravi Kumar}: problem framing, product design, interface iteration, final integration.
+    \item \textbf{Sohan Mahesh}: retrieval and ranking experiments.
+    \item \textbf{Parvathi Gottumukkala}: data ingestion, source analysis, and evaluation support.
+    \item \textbf{Shraavya Kishan Bharadwaj}: documentation, demo preparation, and deployment support.
+\end{itemize}
+
+\noindent
+\textit{Note: update the contribution bullets above to reflect your team's actual division of work before final submission.}
+
+\end{document}

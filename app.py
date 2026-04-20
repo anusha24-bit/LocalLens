@@ -43,7 +43,7 @@ def enrich_tip_text(tip: str, response) -> str:
         return f"Use [MuniMobile]({MUNIMOBILE_URL}) for mobile tickets and trip planning."
     return tip
 
-SERVICE_CACHE_VERSION = "2026-04-19-ui-refresh-v1"
+SERVICE_CACHE_VERSION = "2026-04-20-ui-contrast-fix-v2"
 
 
 def metric_card(value: str, label: str, detail: str) -> str:
@@ -150,6 +150,14 @@ st.markdown(
             linear-gradient(180deg, #f7f1e7 0%, #fbf8f2 42%, #eef2f4 100%);
         color: var(--ink);
         font-family: var(--sans);
+    }
+    [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stAppViewContainer"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stAppViewContainer"] [data-testid="stCaptionContainer"],
+    [data-testid="stAppViewContainer"] .st-emotion-cache-ue6h4q,
+    [data-testid="stAppViewContainer"] .st-emotion-cache-1wivap2,
+    [data-testid="stAppViewContainer"] .st-emotion-cache-1r6slb0 {
+        color: var(--ink) !important;
     }
     h1, h2, h3 {
         letter-spacing: -0.03em;
@@ -341,6 +349,53 @@ st.markdown(
         min-height: 8.5rem;
         font-size: 1rem;
         line-height: 1.6;
+    }
+    .stTextArea textarea,
+    .stTextInput input,
+    .stTextArea textarea::placeholder,
+    .stTextInput input::placeholder,
+    .stSelectbox label,
+    .stTextArea label,
+    .stTextInput label,
+    div[data-baseweb="select"] *,
+    div[data-baseweb="popover"] *,
+    ul[role="listbox"] *,
+    li[role="option"] * {
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
+    }
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="popover"],
+    ul[role="listbox"],
+    li[role="option"] {
+        background: rgba(255, 255, 255, 0.96) !important;
+    }
+    div[data-baseweb="select"] svg,
+    div[data-baseweb="popover"] svg {
+        fill: var(--ink) !important;
+        color: var(--ink) !important;
+    }
+    [data-testid="stTextArea"] textarea,
+    [data-testid="stTextInput"] input,
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stSelectbox"] [data-baseweb="select"] input {
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
+        caret-color: var(--ink) !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stSidebar"] [data-testid="stTextInput"] input,
+    [data-testid="stSidebar"] [data-testid="stTextArea"] textarea {
+        background: rgba(255, 255, 255, 0.96) !important;
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"] div,
+    [data-testid="stSidebar"] [data-testid="stTextInput"] input::placeholder,
+    [data-testid="stSidebar"] [data-testid="stTextArea"] textarea::placeholder {
+        color: var(--ink) !important;
+        -webkit-text-fill-color: var(--ink) !important;
     }
     [data-testid="stSidebar"] {
         background:

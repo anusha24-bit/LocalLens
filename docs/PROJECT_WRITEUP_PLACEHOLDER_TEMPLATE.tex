@@ -8,6 +8,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{array}
+\usepackage{float}
 \usepackage{amsmath}
 \usepackage{hyperref}
 \usepackage{caption}
@@ -23,45 +24,25 @@
     urlcolor=blue
 }
 
-\raggedbottom
+\title{\textbf{LocalLens: Grounded Local-Intelligence Retrieval for Travelers and Recent Movers}}
+\author{
+\textbf{Instructor: Prof Karl Ni} \\[1em]
+Anusha Ravi Kumar \\
+\texttt{ravikumar.anu@northeastern.edu}
+\and
+Sohan Mahesh \\
+\texttt{mahesh.so@northeastern.edu}
+\and
+Parvathi Gottumukkala \\
+\texttt{gottumukkala.pa@northeastern.edu}
+\and
+Shraavya Kishan Bharadwaj \\
+\texttt{bharadwaj.sh@northeastern.edu}
+}
+\date{CS 6120 \quad Natural Language Processing \\ Northeastern University}
 
 \begin{document}
-\begin{center}
-{\LARGE\bfseries LocalLens: Grounded Local-Intelligence Retrieval for\par}
-\vspace{0.35em}
-{\LARGE\bfseries Travelers and Recent Movers\par}
-\vspace{1.15em}
-{\large\textbf{CS 6120: Natural Language Processing}\par}
-\vspace{0.25em}
-{\large Instructor: Prof Karl Ni\par}
-\vspace{1.25em}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{cc}
-\begin{tabular}[t]{@{}c@{}}
-Anusha Ravi Kumar\\
-\texttt{ravikumar.anu@northeastern.edu}
-\end{tabular}
-&
-\begin{tabular}[t]{@{}c@{}}
-Sohan Mahesh\\
-\texttt{mahesh.so@northeastern.edu}
-\end{tabular}\\[1.1em]
-\begin{tabular}[t]{@{}c@{}}
-Parvathi Gottumukkala\\
-\texttt{gottumukkala.pa@northeastern.edu}
-\end{tabular}
-&
-\begin{tabular}[t]{@{}c@{}}
-Shraavya Kishan Bharadwaj\\
-\texttt{bharadwaj.sh@northeastern.edu}
-\end{tabular}
-\end{tabular}
-\vspace{1.0em}
-
-{\large Northeastern University\par}
-\end{center}
-
-\vspace{1.2em}
+\maketitle
 
 \section{Objectives and Significance}
 Travel questions sound simple, but practical local questions are usually much harder than generic web search suggests. A user asking ``Where should I watch the sunset in San Francisco?'' or ``What should I know before moving to Seattle?'' is not only looking for landmark names. They are asking for neighborhood context, tradeoffs, transit practicality, place quality, and the sort of advice that long-time residents learn gradually. General-purpose language models often answer these questions fluently, but not always faithfully. Search engines return many links, but they do not usually synthesize them into a grounded, concise answer. LocalLens was built to address this gap.
@@ -110,7 +91,7 @@ LocalLens is an end-to-end local-intelligence stack rather than a standalone LLM
     \item \textbf{Grounded answer generation}: produce a readable answer, explanation, and citations through the Streamlit interface.
 \end{enumerate}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
 \fbox{
 \parbox{0.94\linewidth}{
@@ -139,9 +120,18 @@ answer, why this recommendation, key tips, retrieval notes, citations
 \end{figure}
 
 % FIGURE SLOT 1: SYSTEM ARCHITECTURE / PIPELINE OVERVIEW
-\begin{figure}[htbp]
+% Replace this placeholder with an architecture image if desired.
+% Recommended file: docs/figures/source_pipeline_overview.png
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.9\textwidth]{figures/source_pipeline_overview.png}
+\fbox{\parbox{0.88\textwidth}{
+\centering
+\vspace{1.1cm}
+\textbf{Insert Figure 1 Here}\\[0.5em]
+System architecture or pipeline overview\\
+Suggested file: \texttt{docs/figures/source\_pipeline\_overview.png}
+\vspace{1.1cm}
+}}
 \caption{Optional visual summary of the LocalLens architecture. This is a good place for a cleaned-up version of the slide system-flow graphic.}
 \label{fig:pipeline-visual}
 \end{figure}
@@ -175,7 +165,7 @@ After the latest full rebuild, the corpus contains the following totals across 2
 
 Table \ref{tab:source-breakdown} shows the source-document breakdown.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Current source-document composition after the latest rebuild.}
 \label{tab:source-breakdown}
@@ -195,9 +185,18 @@ forum\_digest & 152 \\
 The large number of place records means the corpus is still structurally place-heavy. However, the presence of 208 \texttt{local\_guide} documents is a major improvement over earlier rebuilds that produced zero such documents. Cities like Seattle, San Jose, Austin, Chicago, and New Orleans now all contain local-guide coverage, which matters for questions about newcomer advice, neighborhood vibe, and local norms.
 
 % FIGURE SLOT 2: SOURCE BREAKDOWN PLOT
-\begin{figure}[htbp]
+% Replace this placeholder with a bar chart of source-document counts.
+% Recommended file: docs/figures/source_breakdown.png
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.78\textwidth]{figures/source_breakdown.png}
+\fbox{\parbox{0.8\textwidth}{
+\centering
+\vspace{0.9cm}
+\textbf{Insert Figure 2 Here}\\[0.5em]
+Source-document composition plot\\
+Suggested file: \texttt{docs/figures/source\_breakdown.png}
+\vspace{0.9cm}
+}}
 \caption{Recommended plot: source-document composition of the rebuilt corpus. This figure would visually reinforce the balance between place records and narrative local-knowledge sources.}
 \label{fig:source-breakdown-plot}
 \end{figure}
@@ -205,7 +204,7 @@ The large number of place records means the corpus is still structurally place-h
 \subsection{Place Coverage}
 Table \ref{tab:place-cats} shows the largest structured categories in the current corpus.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Largest place categories in the rebuilt corpus.}
 \label{tab:place-cats}
@@ -229,9 +228,18 @@ market & 138 \\
 This table also explains several later failure modes. LocalLens has abundant restaurant, park, attraction, and transit-stop coverage, but much thinner coverage for rare categories like equestrian or dark-sky activity-specific venues. As a result, some queries are answered well, while others appropriately abstain.
 
 % FIGURE SLOT 3: PLACE CATEGORY DISTRIBUTION
-\begin{figure}[htbp]
+% Replace this placeholder with a plot of top place categories.
+% Recommended file: docs/figures/place_category_distribution.png
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.82\textwidth]{figures/place_category_distribution.png}
+\fbox{\parbox{0.84\textwidth}{
+\centering
+\vspace{0.9cm}
+\textbf{Insert Figure 3 Here}\\[0.5em]
+Place-category distribution plot\\
+Suggested file: \texttt{docs/figures/place\_category\_distribution.png}
+\vspace{0.9cm}
+}}
 \caption{Recommended plot: largest structured place categories in the corpus. This figure helps explain why LocalLens is strong on some query families and weaker on others.}
 \label{fig:place-category-plot}
 \end{figure}
@@ -341,9 +349,18 @@ The current public deployment used for demo testing is hosted at:
 This interface matters because LocalLens is not only about retrieving facts. It is about making those facts useful and readable to a traveler or recent mover.
 
 % FIGURE SLOT 4: MAIN APP SCREENSHOT
-\begin{figure}[htbp]
+% Replace this placeholder with a real screenshot from the LocalLens app.
+% Recommended file: docs/figures/app_main_ui.png
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.95\textwidth]{figures/app_main_ui.png}
+\fbox{\parbox{0.92\textwidth}{
+\centering
+\vspace{1.1cm}
+\textbf{Insert Screenshot 1 Here}\\[0.5em]
+Main Streamlit interface with query box, answer, retrieval notes, and citations\\
+Suggested file: \texttt{docs/figures/app\_main\_ui.png}
+\vspace{1.1cm}
+}}
 \caption{Recommended screenshot: the main LocalLens interface with a representative answer and retrieval notes visible.}
 \label{fig:ui-main}
 \end{figure}
@@ -351,7 +368,7 @@ This interface matters because LocalLens is not only about retrieving facts. It 
 \section{Rubric Alignment and Deliverables}
 The project was also shaped around the practical expectations of the CS 6120 final-project rubric rather than only around a research-style architecture diagram. Table \ref{tab:rubric} maps the current implementation to the main deliverables emphasized in the repository and demo materials.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Rubric-alignment summary for the current LocalLens submission.}
 \label{tab:rubric}
@@ -414,7 +431,7 @@ This also explains why the project improved first on scenic and broad discovery 
 \subsection{Representative Evaluation Outcomes}
 Table \ref{tab:eval} summarizes the latest representative results.
 
-\begin{table}[htbp]
+\begin{table}[H]
 \centering
 \caption{Representative evaluation outcomes from the latest rebuilt corpus.}
 \label{tab:eval}
@@ -462,9 +479,18 @@ The Chicago transit result illustrates a subtle but important failure mode. The 
 The horse-riding query is a strong example of a system failing correctly. The current corpus has only minimal equestrian coverage, so the honest answer is abstention. This result is useful because it shows that the system's safety behavior improved. In a live demo or class setting, this is better than confidently inventing a recommendation. It also highlights a key product lesson from the project: a trustworthy local assistant must know when the corpus is insufficient.
 
 % FIGURE SLOT 5: QUALITATIVE QUERY EXAMPLES
-\begin{figure}[htbp]
+% Replace this placeholder with a montage of strong answer + abstention examples.
+% Recommended file: docs/figures/eval_query_examples.png
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.95\textwidth]{figures/eval_query_examples.png}
+\fbox{\parbox{0.92\textwidth}{
+\centering
+\vspace{1.1cm}
+\textbf{Insert Figure 5 Here}\\[0.5em]
+Qualitative query output examples\\
+Suggested file: \texttt{docs/figures/eval\_query\_examples.png}
+\vspace{1.1cm}
+}}
 \caption{Recommended qualitative figure: representative query outputs from the live app, showing both a successful grounded answer and a correctly abstained answer.}
 \label{fig:eval-examples}
 \end{figure}
@@ -491,9 +517,18 @@ The project was designed with a vector-database path in mind, but the latest sta
 The present benchmark is intentionally realistic, but it is still small. It is very useful for presentation safety and system debugging, yet it does not replace a larger annotated evaluation set with query labels, groundedness judgments, and answer-quality scoring. This is not a flaw in the system itself, but it is a limitation in how comprehensively we can quantify progress right now.
 
 % FIGURE SLOT 6: QUERY FAMILY SUMMARY
-\begin{figure}[htbp]
+% Replace this placeholder with a summary plot of strong / partial / weak query families.
+% Recommended file: docs/figures/query_family_summary.png
+\begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/query_family_summary.png}
+\fbox{\parbox{0.86\textwidth}{
+\centering
+\vspace{0.9cm}
+\textbf{Insert Figure 6 Here}\\[0.5em]
+Query-family summary plot\\
+Suggested file: \texttt{docs/figures/query\_family\_summary.png}
+\vspace{0.9cm}
+}}
 \caption{Recommended plot: qualitative summary of current performance by query family, such as scenic, hidden-gem, newcomer, transit, nightlife, and niche-activity prompts.}
 \label{fig:query-family-summary}
 \end{figure}
@@ -545,6 +580,11 @@ There are several high-value next steps, and they fall into three broad groups: 
 
 These future directions are intentionally concrete. They are not generic ``make it better'' statements; they follow directly from the failure cases surfaced by the rebuilt corpus and the presentation benchmark.
 
+\section{Conclusion}
+LocalLens demonstrates that local-question answering is best treated as a hybrid NLP systems problem rather than a pure language-model prompt. Useful local answers require multiple kinds of evidence: guide prose, local-discussion style signals, and structured place metadata. The latest version of the project substantially improved the local-knowledge layer through curated local-web ingestion, quality-based page selection, and fallback local-guide synthesis. It also improved system honesty through better abstention.
+
+At the same time, the project remains transparent about its weaknesses. Some of the most challenging queries still fail because of ranking and source-coverage gaps, not because the interface or model is missing. This honesty is part of the contribution. LocalLens shows both what a grounded local-intelligence system can already do and where careful retrieval engineering still matters.
+
 \section{Contributions}
 \begin{itemize}[leftmargin=*]
     \item \textbf{Anusha Ravi Kumar}: contributed across product design, system integration, evaluation, and communication. This included shaping the user-facing direction of LocalLens as a local-intelligence assistant, participating in integration and deployment work, helping drive iterative testing of the live system, and contributing to the final presentation and report materials.
@@ -553,42 +593,6 @@ These future directions are intentionally concrete. They are not generic ``make 
     \item \textbf{Shraavya Kishan Bharadwaj}: contributed across documentation, evaluation, presentation preparation, and overall project packaging. This included helping translate technical implementation into clearer user-facing and submission-facing artifacts, supporting evaluation and demo preparation, and contributing to the final communication materials around the project.
 \end{itemize}
 
-\section{Conclusion}
-LocalLens demonstrates that local-question answering is best treated as a hybrid NLP systems problem rather than a pure language-model prompt. Useful local answers require multiple kinds of evidence: guide prose, local-discussion style signals, and structured place metadata. The latest version of the project substantially improved the local-knowledge layer through curated local-web ingestion, quality-based page selection, and fallback local-guide synthesis. It also improved system honesty through better abstention.
-
-At the same time, the project remains transparent about its weaknesses. Some of the most challenging queries still fail because of ranking and source-coverage gaps, not because the interface or model is missing. This honesty is part of the contribution. LocalLens shows both what a grounded local-intelligence system can already do and where careful retrieval engineering still matters.
-
-\begin{thebibliography}{9}
-
-\bibitem{wikivoyage}
-Wikivoyage.
-\newblock \url{https://www.wikivoyage.org/}
-
-\bibitem{wikipedia}
-Wikipedia and MediaWiki API.
-\newblock \url{https://www.wikipedia.org/}
-
-\bibitem{osm}
-OpenStreetMap and Overpass API.
-\newblock \url{https://www.openstreetmap.org/}
-
-\bibitem{sentence_transformers}
-Nils Reimers and Iryna Gurevych.
-\newblock Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks.
-\newblock In \emph{Proceedings of EMNLP-IJCNLP}, 2019.
-
-\bibitem{streamlit}
-Streamlit.
-\newblock \url{https://streamlit.io/}
-
-\bibitem{ollama}
-Ollama.
-\newblock \url{https://ollama.com/}
-
-\bibitem{qdrant}
-Qdrant Vector Database.
-\newblock \url{https://qdrant.tech/}
-
-\end{thebibliography}
+Overall, the project should be understood as an equal-contribution team effort. All four team members contributed to the technical build, iterative evaluation, presentation preparation, and final submission materials, even though particular tasks naturally had moments of primary ownership.
 
 \end{document}
