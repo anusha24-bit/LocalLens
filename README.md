@@ -150,6 +150,9 @@ LocalLens integrates with the Google Places API to enable rating-aware search (e
 
 ---
 
-## Documentation 
+## Documentation
+
+- [Project writeup](docs/WriteupLocalLens.pdf)
 - [Demo script](docs/demo_script.md)
 - [GCP setup notes](docs/gcp_free_tier.md)
+```
