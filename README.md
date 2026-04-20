@@ -7,16 +7,6 @@ LocalLens is a local-first RAG assistant for travelers and recent movers. It com
 - `Best taco place in San Jose over 4.5?`
 - `Can I rely on public transit in Chicago?`
 
-The project is designed around the CS 6120 final-project rubric:
-
-- Streamlit frontend
-- 10k+ entry database
-- local model serving with Ollama
-- clickable citations to source passages
-- reproducible ingestion/build pipeline
-- Dockerized setup
-- writeup and demo guidance
-
 ## Architecture
 
 ```mermaid
@@ -70,7 +60,8 @@ LocalLens/
 ### 1. Install
 
 ```bash
-cd /Users/anusharavikumar/Desktop/LocalLens
+git clone https://github.com/anusha24-bit/LocalLens.git
+cd LocalLens
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
@@ -138,7 +129,7 @@ If you want rating-sensitive place answers such as `best taco place in san jose 
 
 The app still works without it, but rating-aware place search is much better with Google Places enabled.
 
-See [docs/gcp_free_tier.md](/Users/anusharavikumar/Desktop/LocalLens/docs/gcp_free_tier.md) for current Google Cloud and Maps free-tier notes.
+See [docs/gcp_free_tier.md](docs/gcp_free_tier.md) for current Google Cloud and Maps free-tier notes.
 
 ## Docker
 
@@ -162,27 +153,50 @@ docker run --rm -p 8501:8501 \
 docker compose up --build
 ```
 
-## Deployment Notes
+## Deployment
 
-### Local demo
+### Running locally
 
-The easiest path for presentation day is:
+The simplest way to run LocalLens on your own machine:
 
-1. Run Ollama locally on the same machine.
-2. Build the LocalLens SQLite database and embeddings ahead of time.
-3. Launch Streamlit and expose the machine's IP address on your local network or a VM.
+1. Install [Ollama](https://ollama.com) and pull the model:
+   ```bash
+   ollama pull llama3.1:8b-instruct-q4_K_M
+   ollama serve
+   ```
+2. Build the corpus and index (only needed once, or when you want to refresh data):
+   ```bash
+   python3 scripts/build_corpus.py
+   python3 scripts/build_index.py
+   ```
+3. Launch the app:
+   ```bash
+   PYTHONPATH=src streamlit run app.py
+   ```
+4. Open `http://localhost:8501` in your browser.
 
-### Free or low-cost GCP path
+### Running with Docker
 
-If you want to use Google Cloud:
+If you prefer a containerized setup:
 
-1. Use a small Compute Engine VM for the Streamlit app, SQLite database, and embedding artifacts.
-2. Keep Ollama on:
-   - the same VM if you provision enough CPU/RAM, or
-   - a separate machine you control.
-3. Restrict Google Maps keys if you enable Places enrichment.
+```bash
+docker compose up --build
+```
 
-See [docs/gcp_free_tier.md](/Users/anusharavikumar/Desktop/LocalLens/docs/gcp_free_tier.md) for the current free-tier notes and official links.
+Then visit `http://localhost:8501`. Ollama must be running on your host machine; the container connects to it via `host.docker.internal:11434`.
+
+### Deploying to a cloud VM (e.g. GCP, AWS, DigitalOcean)
+
+1. Provision a VM with at least **8 GB RAM** (16 GB recommended for smooth inference).
+2. Install Ollama, pull your model, and run `ollama serve` on the VM.
+3. Clone this repo, build the corpus/index, and start Streamlit:
+   ```bash
+   PYTHONPATH=src streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+   ```
+4. Open port `8501` in your firewall/security group rules.
+5. (Optional) Put Nginx or Caddy in front of Streamlit for HTTPS.
+
+For Google Cloud specifically, see [docs/gcp_free_tier.md](docs/gcp_free_tier.md) for free-tier tips and setup notes.
 
 ## Reproducibility Notes
 
@@ -196,11 +210,7 @@ python3 scripts/build_corpus.py
 python3 scripts/build_index.py
 ```
 
-## Submission Checklist
+## Documentation
 
-- Code and README
-- Docker setup
-- Streamlit demo
-- Writeup PDF from [docs/PROJECT_WRITEUP.tex](/Users/anusharavikumar/Desktop/LocalLens/docs/PROJECT_WRITEUP.tex)
-- Slide/demo notes from [docs/demo_script.md](/Users/anusharavikumar/Desktop/LocalLens/docs/demo_script.md)
-- GCP/free-tier notes from [docs/gcp_free_tier.md](/Users/anusharavikumar/Desktop/LocalLens/docs/gcp_free_tier.md)
+- [docs/gcp_free_tier.md](docs/gcp_free_tier.md) — Google Cloud free-tier setup and tips
+- [docs/demo_script.md](docs/demo_script.md) — example queries and walkthrough
