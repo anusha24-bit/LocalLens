@@ -278,7 +278,6 @@ class LocalLensService:
                     }
         if intent.wants_local_knowledge and retrieved and not self._has_high_signal_local_evidence(intent, retrieved):
             retrieved = []
-        place_candidates = self._filter_low_signal_place_candidates(intent, place_candidates)
         if intent.wants_places and not place_candidates and not self._has_grounded_place_evidence(intent, retrieved):
             retrieved = []
         gallery = self._gallery_for(intent.location, place_candidates)
@@ -1203,54 +1202,6 @@ class LocalLensService:
         if intent.topic in {"hidden_gems", "scenic", "outdoors", "nightlife"}:
             return any(result.chunk.source_type in MEDIUM_SIGNAL_LOCAL_SOURCE_TYPES for result in results)
         return False
-
-    def _filter_low_signal_place_candidates(
-        self,
-        intent: QueryIntent,
-        candidates: list[PlaceCandidate],
-    ) -> list[PlaceCandidate]:
-        filtered = [candidate for candidate in candidates if not self._is_category_only_place_candidate(intent, candidate)]
-        return filtered
-
-    def _is_category_only_place_candidate(self, intent: QueryIntent, candidate: PlaceCandidate) -> bool:
-        place = candidate.place
-        reasons = [part.strip().lower() for part in candidate.why.split(",") if part.strip()]
-        if not reasons:
-            return False
-        generic_prefixes = (
-            "matches the ",
-            "fits the ",
-        )
-        generic_suffixes = (
-            " category",
-            " category for this request",
-        )
-        generic_reasons = 0
-        for reason in reasons:
-            if reason.startswith("fits a general activities query as a "):
-                generic_reasons += 1
-                continue
-            if any(reason.startswith(prefix) for prefix in generic_prefixes) and any(
-                reason.endswith(suffix) for suffix in generic_suffixes
-            ):
-                generic_reasons += 1
-        if generic_reasons != len(reasons):
-            return False
-        synthetic_description = self._normalize_lookup_text(place.description).endswith(
-            self._normalize_lookup_text(f"is a {place.category} listing in {place.location}")
-        ) or " listing in " in self._normalize_lookup_text(place.description)
-        explicit_cuisine_match = bool(
-            intent.cuisine
-            and any(self._contains_phrase(self._normalize_lookup_text(" ".join(place.cuisine + place.tags)), intent.cuisine) for _ in [0])
-        )
-        has_supporting_metadata = bool(
-            place.rating is not None
-            or place.review_count is not None
-            or place.review_snippets
-            or explicit_cuisine_match
-            or (len(place.description.strip()) >= 40 and not synthetic_description)
-        )
-        return not has_supporting_metadata
 
 
 def service_from_root(project_root: str | Path) -> LocalLensService:
