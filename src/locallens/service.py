@@ -276,10 +276,19 @@ class LocalLensService:
                     retrieval_filters = {
                         "location_fallback": intent.location,
                     }
+        retrieved = self._filter_query_specific_results(intent, retrieved)
+        place_candidates = self._filter_query_specific_places(intent, place_candidates)
         if intent.wants_local_knowledge and retrieved and not self._has_high_signal_local_evidence(intent, retrieved):
             retrieved = []
         if intent.wants_places and not place_candidates and not self._has_grounded_place_evidence(intent, retrieved):
             retrieved = []
+        if (retrieved or place_candidates) and not self._has_query_specific_grounding(intent, retrieved, place_candidates):
+            retrieved = []
+            place_candidates = []
+            retrieval_filters = {
+                **retrieval_filters,
+                "abstained": "query_specific_grounding_failed",
+            }
         gallery = self._gallery_for(intent.location, place_candidates)
         return compose_answer(
             query,
@@ -390,6 +399,11 @@ class LocalLensService:
             intent.topic = self._default_topic_from_activity_types(intent.activity_types)
         if equestrian_query and "sports_recreation" not in intent.activity_types:
             intent.activity_types.append("sports_recreation")
+        if intent.category == "trail":
+            if "outdoors" not in intent.activity_types:
+                intent.activity_types.append("outdoors")
+            if not intent.topic or intent.topic == "activities":
+                intent.topic = "outdoors"
         if intent.category == "attraction" and (intent.activity_types or broad_activity_query):
             intent.category = ""
         intent.wants_hidden_gems = intent.topic == "hidden_gems" or "hidden_gems" in intent.activity_types
@@ -1202,6 +1216,95 @@ class LocalLensService:
         if intent.topic in {"hidden_gems", "scenic", "outdoors", "nightlife"}:
             return any(result.chunk.source_type in MEDIUM_SIGNAL_LOCAL_SOURCE_TYPES for result in results)
         return False
+
+    def _filter_query_specific_results(self, intent: QueryIntent, results: list) -> list:
+        markers = self._query_specific_markers(intent)
+        if not markers or not results:
+            return results
+        filtered = []
+        for result in results:
+            if self._result_matches_query_family(intent, result, markers):
+                filtered.append(result)
+        return filtered
+
+    def _filter_query_specific_places(self, intent: QueryIntent, place_candidates: list[PlaceCandidate]) -> list[PlaceCandidate]:
+        markers = self._query_specific_markers(intent)
+        if not markers or not place_candidates:
+            return place_candidates
+        filtered = []
+        for candidate in place_candidates:
+            if self._place_matches_query_family(intent, candidate.place, markers):
+                filtered.append(candidate)
+        return filtered
+
+    def _has_query_specific_grounding(
+        self,
+        intent: QueryIntent,
+        results: list,
+        place_candidates: list[PlaceCandidate],
+    ) -> bool:
+        markers = self._query_specific_markers(intent)
+        if not markers:
+            return True
+        return bool(results or place_candidates)
+
+    def _query_specific_markers(self, intent: QueryIntent) -> set[str]:
+        normalized_query = self._normalize_lookup_text(intent.query)
+        if intent.category == "trail" or any(
+            self._contains_phrase(normalized_query, phrase) for phrase in {"hike", "hiking", "trail", "trailhead"}
+        ):
+            return {"hike", "hiking", "trail", "trailhead", "park", "preserve", "outdoor"}
+        if self._is_sunset_query(intent.query.lower()) or intent.topic == "scenic":
+            return {"sunset", "golden hour", "viewpoint", "overlook", "park", "beach", "peak", "hill", "view"}
+        if intent.topic == "nightlife":
+            return {"nightlife", "bar", "club", "cocktail", "music", "dance", "late night", "venue"}
+        if intent.topic == "transit" or intent.category == "transit":
+            return {"transit", "train", "bus", "metro", "station", "rail", "subway", "parking"}
+        if intent.topic == "food" or intent.category == "restaurant" or intent.cuisine:
+            markers = {"restaurant", "food", "eat", "cafe", "bar", "market"}
+            if intent.cuisine:
+                markers.add(intent.cuisine.lower())
+            return markers
+        if intent.topic in LOCAL_KNOWLEDGE_TOPICS:
+            return {"local", "locals", "neighborhood", "custom", "etiquette", "moving", "newcomer", "hidden gem"}
+        return set()
+
+    def _result_matches_query_family(self, intent: QueryIntent, result, markers: set[str]) -> bool:
+        section = str(result.chunk.metadata.get("section_title", ""))
+        category = str(result.chunk.metadata.get("category", ""))
+        haystack = self._normalize_lookup_text(
+            " ".join(
+                [
+                    result.chunk.title,
+                    result.chunk.passage_text,
+                    section,
+                    category,
+                    result.chunk.topic,
+                ]
+            )
+        )
+        if any(self._contains_phrase(haystack, marker) for marker in markers):
+            return True
+        if result.chunk.source_type == "place_record" and intent.category:
+            return category.lower() == intent.category.lower()
+        return False
+
+    def _place_matches_query_family(self, intent: QueryIntent, place: PlaceRecord, markers: set[str]) -> bool:
+        if intent.category and place.category == intent.category:
+            return True
+        haystack = self._normalize_lookup_text(
+            " ".join(
+                [
+                    place.name,
+                    place.category,
+                    place.description,
+                    " ".join(place.tags),
+                    " ".join(place.review_snippets),
+                    " ".join(place.cuisine),
+                ]
+            )
+        )
+        return any(self._contains_phrase(haystack, marker) for marker in markers)
 
 
 def service_from_root(project_root: str | Path) -> LocalLensService:
