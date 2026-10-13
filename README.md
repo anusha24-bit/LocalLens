@@ -55,8 +55,9 @@ LocalLens/
 │   ├── processed/
 │   └── raw/
 ├── docs/
-├── scripts/
-├── src/locallens/
+├── scripts/            # build, eval, profiling, and quantization benchmarks
+├── src/locallens/      # retrieval, generation, ingestion, mcp_server.py
+├── tests/              # MCP server tests
 ├── .env.example
 ├── Dockerfile
 ├── docker-compose.yml
@@ -111,6 +112,32 @@ Retrieval embeddings and reranking run locally via:
 
 ---
 
+## Performance and Optimization
+
+Retrieval latency was profiled and optimized on the 10-query benchmark (`scripts/run_presentation_eval.py`), measuring before changing anything and keeping results that did not help.
+
+| Change | Result |
+| --- | --- |
+| Profile the pipeline (`torch.profiler` + stage timing) | BM25 was 74% of retrieval latency; `aten::copy_` (MPS host-device transfers on batch-of-one queries) was 61% of encoder CPU time |
+| BM25 inverted index (replaces rank_bm25's full-corpus scan; identical scores) and CPU-pinned query encoder | Mean retrieval latency 62.1 to 10.2 ms/query (6.1x) over 30 runs; BM25 stage 46 to 1.1 ms, encoder 10.0 to 3.5 ms |
+| Optional INT8 dense index (per-vector scalar quantization, `LOCALLENS_DENSE_INT8=1`, off by default) | 3.96x smaller (32.4 to 8.2 MB), 100% dense top-10 recall on all 10 benchmark queries, but a 5.6x slower scan because NumPy has no int8 matrix-vector kernel: a memory win only |
+| INT8 dynamic quantization of the MiniLM query encoder (rejected) | Weights only 1.55x smaller (dynamic quantization skips the embedding table), 0.85x speed, embedding cosine 0.974 versus FP32 |
+
+After these changes, LLM generation dominates end-to-end latency, so further gains need to come from the generation model (it already runs 4-bit quantized, `q4_K_M`).
+
+Reproduce:
+
+```bash
+PYTHONPATH=src python3 scripts/profile_query_pipeline.py        # stage breakdown + torch.profiler trace
+PYTHONPATH=src python3 scripts/benchmark_fp32_vs_int8.py        # INT8 dense index vs FP32
+PYTHONPATH=src python3 scripts/benchmark_encoder_quantization.py # INT8 encoder vs FP32
+python3 scripts/benchmark_embedding_quantization.py             # recall@10 at lower index precision
+```
+
+Results are saved under `artifacts/`.
+
+---
+
 ## MCP Tool Server
 
 LocalLens can be used as a tool by any MCP client (Claude Desktop, Claude Code, agent frameworks). `src/locallens/mcp_server.py` exposes three tools over stdio:
@@ -121,7 +148,7 @@ LocalLens can be used as a tool by any MCP client (Claude Desktop, Claude Code, 
 | `ask_locallens` | Full grounded pipeline with citations; abstains when the corpus has no evidence |
 | `index_stats` | Corpus size, covered locations and topics, available backends |
 
-Run it: `PYTHONPATH=src python -m locallens.mcp_server`
+Run it: `PYTHONPATH=src python3 -m locallens.mcp_server` (requires `pip install mcp`; included in `requirements.txt`)
 
 Claude Desktop / Claude Code config:
 
@@ -131,7 +158,7 @@ Claude Desktop / Claude Code config:
   "env": {"PYTHONPATH": "/absolute/path/to/LocalLens/src"}}}}
 ```
 
-Tests (stubbed service, no index or Ollama needed): `PYTHONPATH=src pytest tests/test_mcp_server.py`
+Tests (stubbed service, no index or Ollama needed): `PYTHONPATH=src python3 -m pytest tests/test_mcp_server.py`
 
 ## Docker
 
@@ -167,7 +194,10 @@ LocalLens integrates with the Google Places API to enable rating-aware search (e
 | Path | Description |
 |------|-------------|
 | `data/processed/locallens.db` | Main SQLite database |
-| `artifacts/chunk_embeddings.npy` | Dense embedding index |
+| `artifacts/chunk_embeddings.npy` | Dense embedding index (FP32) |
+| `artifacts/chunk_embeddings_int8.npz` | Optional INT8 dense index |
+| `artifacts/*_results.json`, `profile_*.json` | Benchmark and profiling outputs |
+| `src/locallens/mcp_server.py` | MCP tool server |
 | `src/locallens/ingestion/` | All ingestion code |
 
 ---
