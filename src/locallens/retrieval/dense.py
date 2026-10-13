@@ -11,6 +11,25 @@ from locallens.utils import ensure_parent
 
 DEFAULT_QDRANT_BATCH_SIZE = 256
 QDRANT_SEARCH_MIN_LIMIT = 64
+INT8_BACKEND_SUFFIX = "+int8"
+INT8_MAX = 127
+
+
+def quantize_matrix_int8(matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Per-vector symmetric scalar quantization of a dense index to int8.
+
+    Every row gets its own scale (its max absolute value) so the full int8 range is
+    used, which keeps cosine ranking close to fp32 while storing the index at roughly
+    a quarter of the size. Returns the int8 matrix plus the per-row fp32 scales needed
+    to recover approximate dot products.
+    """
+    matrix = np.asarray(matrix, dtype=np.float32)
+    if matrix.size == 0:
+        return np.zeros((0, 0), dtype=np.int8), np.zeros((0,), dtype=np.float32)
+    scales = np.abs(matrix).max(axis=1) / float(INT8_MAX)
+    scales[scales == 0] = 1.0
+    quantized = np.clip(np.round(matrix / scales[:, None]), -INT8_MAX, INT8_MAX).astype(np.int8)
+    return quantized, scales.astype(np.float32)
 
 
 def _normalize(matrix: np.ndarray) -> np.ndarray:
@@ -101,6 +120,11 @@ class DenseRetriever:
         self.query_backend = None
         self.client = None
         self.using_qdrant = self.settings.vector_backend == "qdrant"
+        # Off by default (Settings.dense_int8); when on, the fp32 matrix is replaced by a
+        # compressed int8 index plus per-vector scales.
+        self.use_int8 = bool(self.settings.dense_int8)
+        self.int8_matrix: np.ndarray | None = None
+        self.int8_scales: np.ndarray | None = None
         self.matrix, self.ids = self._load_or_build()
 
     def _load_or_build(self) -> tuple[np.ndarray, list[str]]:
@@ -108,13 +132,22 @@ class DenseRetriever:
             return np.empty((0, 0), dtype=np.float32), []
 
         self.using_qdrant = False
-        if self.settings.embedding_matrix_path.exists() and self.settings.chunk_ids_path.exists():
-            matrix = np.load(self.settings.embedding_matrix_path)
+        if self.settings.chunk_ids_path.exists() and (
+            self.settings.embedding_matrix_path.exists() or self._int8_cache_is_usable()
+        ):
             with self.settings.chunk_ids_path.open("r", encoding="utf-8") as handle:
                 payload = json.load(handle)
+            ids = list(payload.get("chunk_ids", []))
             self.backend_name = str(payload.get("backend", "numpy:hash"))
             self.query_backend = self._make_query_backend(_embedding_backend_name(self.backend_name))
-            return matrix, list(payload.get("chunk_ids", []))
+            if self.use_int8:
+                cached = self._load_int8_cache(len(ids))
+                if cached is not None:
+                    # Searching straight off the compressed index: fp32 is never loaded.
+                    self._activate_int8(*cached)
+                    return np.empty((0, 0), dtype=np.float32), ids
+            matrix = np.load(self.settings.embedding_matrix_path)
+            return self._maybe_quantize(matrix), ids
 
         matrix, ids, backend_name = build_dense_embeddings(self.settings, self.chunks)
         self.backend_name = backend_name
@@ -123,7 +156,72 @@ class DenseRetriever:
             self.using_qdrant = True
             self.client = self._connect_qdrant()
             return np.empty((0, 0), dtype=np.float32), []
-        return matrix, ids
+        return self._maybe_quantize(matrix), ids
+
+    def _maybe_quantize(self, matrix: np.ndarray) -> np.ndarray:
+        """Compress the freshly loaded fp32 index to int8 when the setting is on."""
+        if not self.use_int8 or matrix.size == 0:
+            return matrix
+        quantized, scales = quantize_matrix_int8(matrix)
+        self._save_int8_cache(quantized, scales)
+        self._activate_int8(quantized, scales)
+        return np.empty((0, 0), dtype=np.float32)
+
+    def _activate_int8(self, quantized: np.ndarray, scales: np.ndarray) -> None:
+        self.int8_matrix = quantized
+        self.int8_scales = scales
+        if not self.backend_name.endswith(INT8_BACKEND_SUFFIX):
+            self.backend_name = f"{self.backend_name}{INT8_BACKEND_SUFFIX}"
+
+    def _int8_cache_is_usable(self) -> bool:
+        """True when a cached int8 index exists and is not older than the fp32 index."""
+        if not self.use_int8 or not self.settings.embedding_int8_path.exists():
+            return False
+        if not self.settings.embedding_matrix_path.exists():
+            return True
+        return (
+            self.settings.embedding_int8_path.stat().st_mtime
+            >= self.settings.embedding_matrix_path.stat().st_mtime
+        )
+
+    def _load_int8_cache(self, expected_rows: int) -> tuple[np.ndarray, np.ndarray] | None:
+        if not self._int8_cache_is_usable():
+            return None
+        try:
+            with np.load(self.settings.embedding_int8_path) as payload:
+                quantized = payload["quantized"]
+                scales = payload["scales"]
+        except Exception:
+            return None
+        if quantized.shape[0] != expected_rows or scales.shape[0] != expected_rows:
+            return None
+        return quantized.astype(np.int8, copy=False), scales.astype(np.float32, copy=False)
+
+    def _save_int8_cache(self, quantized: np.ndarray, scales: np.ndarray) -> None:
+        try:
+            ensure_parent(self.settings.embedding_int8_path)
+            np.savez(self.settings.embedding_int8_path, quantized=quantized, scales=scales)
+        except Exception:
+            pass
+
+    def _dense_scores(self, query_vector: np.ndarray) -> np.ndarray:
+        """Cosine scores against whichever index precision is active.
+
+        For the int8 index, dequantization folds out of the dot product:
+        (q8 * scale) . query == scale * (q8 . query), so only one scale multiply is
+        needed per chunk instead of materializing an fp32 copy of the matrix.
+        """
+        if self.int8_matrix is not None and self.int8_scales is not None:
+            raw = self.int8_matrix @ np.asarray(query_vector, dtype=np.float32)
+            return np.asarray(raw, dtype=np.float32) * self.int8_scales
+        return self.matrix @ query_vector
+
+    @property
+    def index_nbytes(self) -> int:
+        """On-disk/in-memory footprint of the active dense index, for benchmarking."""
+        if self.int8_matrix is not None and self.int8_scales is not None:
+            return int(self.int8_matrix.nbytes + self.int8_scales.nbytes)
+        return int(self.matrix.nbytes)
 
     def _load_qdrant_or_build(self) -> bool:
         client = self._connect_qdrant()
@@ -179,12 +277,12 @@ class DenseRetriever:
     ) -> list[SearchResult]:
         if self.using_qdrant:
             return self._search_qdrant(query, top_k=top_k, filters=filters)
-        if self.matrix.size == 0:
+        if self.int8_matrix is None and self.matrix.size == 0:
             return []
         if self.query_backend is None:
             self.query_backend = self._make_query_backend(_embedding_backend_name(self.backend_name))
         query_vector = self.query_backend.encode([query])[0]
-        scores = self.matrix @ query_vector
+        scores = self._dense_scores(query_vector)
         ranked_indices = np.argsort(scores)[::-1]
         results: list[SearchResult] = []
         for index in ranked_indices:
