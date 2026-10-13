@@ -58,11 +58,15 @@ class HashingEmbeddingBackend:
 
 
 class SentenceTransformerBackend:
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, device: str | None = None) -> None:
         from sentence_transformers import SentenceTransformer
 
         self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
+        # device=None lets sentence-transformers auto-select (MPS on Apple Silicon),
+        # which is the right choice for bulk index builds. Single short queries are
+        # dominated by host/device transfer rather than compute, so the query-time
+        # backend pins itself to CPU instead.
+        self.model = SentenceTransformer(model_name, device=device)
 
     def encode(self, texts: list[str]) -> np.ndarray:
         matrix = self.model.encode(
@@ -263,7 +267,10 @@ class DenseRetriever:
     def _make_query_backend(self, backend_name: str):
         if backend_name == self.settings.dense_model_name:
             try:
-                return SentenceTransformerBackend(self.settings.dense_model_name)
+                return SentenceTransformerBackend(
+                    self.settings.dense_model_name,
+                    device=self.settings.query_encoder_device or None,
+                )
             except Exception:
                 self.backend_name = "numpy:hash"
         return HashingEmbeddingBackend()

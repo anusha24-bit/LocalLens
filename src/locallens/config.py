@@ -34,6 +34,7 @@ class Settings:
     rerank_model_name: str
     vector_backend: str
     dense_int8: bool
+    query_encoder_device: str
     reddit_client_id: str
     reddit_client_secret: str
     reddit_user_agent: str
@@ -80,6 +81,10 @@ def get_settings(project_root: Path | None = None) -> Settings:
         # Off by default: the dense index is searched at full fp32 precision unless
         # LOCALLENS_DENSE_INT8 is set, in which case the compressed int8 index is used.
         dense_int8=_env_flag("LOCALLENS_DENSE_INT8", False),
+        # Query encoding is batch-of-one on short text, where accelerator transfer
+        # overhead exceeds the compute saved. Set to "" to let sentence-transformers
+        # auto-select a device instead.
+        query_encoder_device=os.getenv("LOCALLENS_QUERY_ENCODER_DEVICE", "cpu").strip(),
         reddit_client_id=os.getenv("REDDIT_CLIENT_ID", ""),
         reddit_client_secret=os.getenv("REDDIT_CLIENT_SECRET", ""),
         reddit_user_agent=os.getenv("REDDIT_USER_AGENT", "LocalLens/0.1"),
