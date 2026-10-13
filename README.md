@@ -111,6 +111,28 @@ Retrieval embeddings and reranking run locally via:
 
 ---
 
+## MCP Tool Server
+
+LocalLens can be used as a tool by any MCP client (Claude Desktop, Claude Code, agent frameworks). `src/locallens/mcp_server.py` exposes three tools over stdio:
+
+| Tool | What it does |
+| --- | --- |
+| `search_evidence` | Hybrid retrieval (BM25 + MiniLM, reciprocal rank fusion) with optional `location` / `topic` filters; returns ranked, cited passages without calling the LLM |
+| `ask_locallens` | Full grounded pipeline with citations; abstains when the corpus has no evidence |
+| `index_stats` | Corpus size, covered locations and topics, available backends |
+
+Run it: `PYTHONPATH=src python -m locallens.mcp_server`
+
+Claude Desktop / Claude Code config:
+
+```json
+{"mcpServers": {"locallens": {
+  "command": "python", "args": ["-m", "locallens.mcp_server"],
+  "env": {"PYTHONPATH": "/absolute/path/to/LocalLens/src"}}}}
+```
+
+Tests (stubbed service, no index or Ollama needed): `PYTHONPATH=src pytest tests/test_mcp_server.py`
+
 ## Docker
 
 ```bash

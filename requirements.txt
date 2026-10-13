@@ -10,3 +10,4 @@ requests>=2.32.3
 sentence-transformers>=3.0.1
 streamlit>=1.39.0
 tenacity>=9.0.0
+mcp>=1.2.0
